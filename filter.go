@@ -77,42 +77,47 @@ type filter struct {
 
 // from initializes a filter from an encoded byte slice.
 func from(fr *filterResponse) (*filter, error) {
-	if fr == nil || fr.Filter == nil {
-		fmt.Println("go-temper: [WARNING] filter response is nil, all checks will return false")
-		return &filter{rollouts: make(map[uint64]uint8)}, nil
-	}
-	if len(fr.Filter)%bucketSize != 0 {
-		return nil, errors.New("go-temper: bytes must be a multiple of 4")
-	}
+	filter := &filter{}
 
-	size := len(fr.Filter) / bytesPerBucket
-	if size < 1 {
-		return nil, errors.New("go-temper: data can not be smaller than 16 (size of a bucket)")
-	}
+	if fr.Filter != nil {
+		if len(fr.Filter)%bucketSize != 0 {
+			return nil, errors.New("go-temper: bytes must be a multiple of 4")
+		}
 
-	if nextPowerOf2(uint64(size)) != uint(size) {
-		return nil, errors.New("go-temper: size must be a power of 2")
-	}
+		size := len(fr.Filter) / bytesPerBucket
+		if size < 1 {
+			return nil, errors.New("go-temper: data can not be smaller than 16 (size of a bucket)")
+		}
 
-	count := uint(0)
-	buckets := make([]bucket, size)
-	r := bytes.NewReader(fr.Filter)
+		if nextPowerOf2(uint64(size)) != uint(size) {
+			return nil, errors.New("go-temper: size must be a power of 2")
+		}
 
-	for i, b := range buckets {
-		for j := range b {
-			if err := binary.Read(r, binary.LittleEndian, &buckets[i][j]); err != nil {
-				return nil, fmt.Errorf("go-temper: failed to decode filter from http api response: %w", err)
-			}
-			if buckets[i][j] != 0 {
-				count++
+		count := uint(0)
+		buckets := make([]bucket, size)
+		r := bytes.NewReader(fr.Filter)
+
+		for i, b := range buckets {
+			for j := range b {
+				if err := binary.Read(r, binary.LittleEndian, &buckets[i][j]); err != nil {
+					return nil, fmt.Errorf("go-temper: failed to decode filter from http api response: %w", err)
+				}
+				if buckets[i][j] != 0 {
+					count++
+				}
 			}
 		}
+
+		filter.cap = uint(size)
+		filter.buckets = buckets
+		filter.count = count
+		filter.bucketIndexMask = uint(len(buckets) - 1)
 	}
 
 	// Unpack the encoded hashed rollout data.
 	rollouts := make(map[uint64]uint8)
 	if fr.Rollout != nil {
-		r = bytes.NewReader(fr.Rollout)
+		r := bytes.NewReader(fr.Rollout)
 
 		entries := make([]uint64, r.Len()/8)
 		for i := range entries {
@@ -126,15 +131,11 @@ func from(fr *filterResponse) (*filter, error) {
 			low := uint8(e & ((1 << 8) - 1))
 			rollouts[high] = low
 		}
+
+		filter.rollouts = rollouts
 	}
 
-	return &filter{
-		cap:             uint(size),
-		buckets:         buckets,
-		count:           count,
-		bucketIndexMask: uint(len(buckets) - 1),
-		rollouts:        rollouts,
-	}, nil
+	return filter, nil
 }
 
 // fingerprintAndIndex returns the fingerprint of the given data, and the
@@ -172,11 +173,17 @@ func (f *filter) altIndex(fingerprint uint16, index uint) uint {
 // filter or whatever) must consult the filter.
 func (f *filter) lookupRollout(data []byte) bool {
 	index := bytes.Index(data, []byte(":"))
-	if index < 0 {
-		return false
+	if index > 0 {
+		// Fully qualified keys are typically in the format
+		// `<feature>:<resource_name>:<actor_id>`, for example, `feature:user:1`.
+		// Since the rollout belongs to the top-level feature, we need to trim off
+		// everything after the first `:`. If no `:` is present, we use the entire
+		// byte slice of data, making the assumption that it is the top-level
+		// feature key.
+		data = data[:index]
 	}
 
-	h := hash([]byte(data[:index]))
+	h := hash(data)
 	high := (h >> 8) << 8
 	rollout := f.rollouts[high]
 
@@ -187,6 +194,10 @@ func (f *filter) lookupRollout(data []byte) bool {
 
 // lookupFilter checks if the data is in the filter.
 func (f *filter) lookupFilter(data []byte) bool {
+	if f.buckets == nil {
+		return false
+	}
+
 	fingerprint, index := f.fingerprintAndIndex(data)
 	if f.buckets[index].contains(fingerprint) {
 		return true
@@ -199,10 +210,6 @@ func (f *filter) lookupFilter(data []byte) bool {
 // lookup returns true if data is in the filter or is enabled by the rollout
 // data.
 func (f *filter) lookup(data []byte) bool {
-	if f.buckets == nil {
-		return false
-	}
-
 	if f.lookupRollout(data) {
 		return true
 	}

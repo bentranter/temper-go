@@ -11,7 +11,7 @@ import (
 
 const (
 	// Version is the release version of the Temper API client.
-	Version = "0.0.2"
+	Version = "0.0.3"
 
 	defaultBaseURL = "https://temperhq.com"
 )

@@ -28,6 +28,26 @@ func Test_filter(t *testing.T) {
 	}
 }
 
+func Test_filter_RolloutOnly(t *testing.T) {
+	rawFilterResp := []byte(`{"filter":null,"rollout":"ZPPzHfbwt2xk7lAWLwPCQgE+Qryr1ydL"}`)
+	fr := &filterResponse{}
+	if err := json.Unmarshal(rawFilterResp, fr); err != nil {
+		t.Fatalf("failed to decode json: %v", err)
+	}
+
+	f, err := from(fr)
+	if err != nil {
+		t.Fatalf("failed to create filter from response: %v", err)
+	}
+
+	if v := f.lookup([]byte("temper_api_e2e_rollout")); !v {
+		t.Errorf("expected temper_api_e2e_rollout to be true but got %v", v)
+	}
+	if v := f.lookup([]byte("temper_api_e2e_rollout:user:3")); !v {
+		t.Errorf("expected temper_api_e2e_rollout:user:3 to be true but got %v", v)
+	}
+}
+
 func Test_filter_zero(t *testing.T) {
 	rawFilterResp := []byte(`{}`)
 	fr := &filterResponse{}
