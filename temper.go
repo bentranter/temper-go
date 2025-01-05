@@ -116,7 +116,7 @@ func New(publishableKey, secretKey string, opts ...*Option) *Client {
 	}
 
 	if err := client.fetchFilter(); err != nil {
-		log.Fatalf("go-temper: failed to fetch and intialize filter: %s", err.Error())
+		log.Printf("go-temper: failed to fetch and intialize filter, trying again in 60 seconds: %s", err.Error())
 	}
 	go client.pollFilter()
 
