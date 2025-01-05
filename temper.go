@@ -11,7 +11,7 @@ import (
 
 const (
 	// Version is the release version of the Temper API client.
-	Version = "0.0.4"
+	Version = "0.0.5"
 
 	defaultBaseURL = "https://temperhq.com"
 )
@@ -116,7 +116,8 @@ func New(publishableKey, secretKey string, opts ...*Option) *Client {
 	}
 
 	if err := client.fetchFilter(); err != nil {
-		log.Printf("go-temper: failed to fetch and intialize filter, trying again in 60 seconds: %s", err.Error())
+		log.Printf("go-temper: failed to fetch and intialize filter: %s, retrying in 60 seconds, all checks will return false", err.Error())
+		client.filter = &filter{}
 	}
 	go client.pollFilter()
 
