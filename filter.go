@@ -172,6 +172,9 @@ func (f *filter) altIndex(fingerprint uint16, index uint) uint {
 // the value is not found, the returned value is 0, indicating the client (or
 // filter or whatever) must consult the filter.
 func (f *filter) lookupRollout(data []byte) bool {
+	// Compute the hash of the full byte slice in case we need it later.
+	hfull := hash(data)
+
 	index := bytes.Index(data, []byte(":"))
 	if index > 0 {
 		// Fully qualified keys are typically in the format
@@ -183,13 +186,20 @@ func (f *filter) lookupRollout(data []byte) bool {
 		data = data[:index]
 	}
 
-	h := hash(data)
-	high := (h >> 8) << 8
+	// Compute the hash of only the feature segment of the byte slice to
+	// pull the rollout percentage from the rollouts map.
+	hfeat := hash(data)
+	high := (hfeat >> 8) << 8
 	rollout := f.rollouts[high]
 
-	// TODO Consistent hash for other cases where we actually need to
-	// distribute the rollout according to the percentage.
-	return rollout == 100
+	// Fast path: if the rollout is 100, return true now so we don't have to
+	// check the mod of the hash of the entire data byte slice.
+	if rollout == 100 {
+		return true
+	}
+	// Otherwise get the last twi digits of the full hash and compare it with
+	// the rollout percentage.
+	return uint8(hfull%100) <= rollout
 }
 
 // lookupFilter checks if the data is in the filter.
