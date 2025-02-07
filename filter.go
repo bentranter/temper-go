@@ -197,7 +197,7 @@ func (f *filter) lookupRollout(data []byte) bool {
 	if rollout == 100 {
 		return true
 	}
-	// Otherwise get the last twi digits of the full hash and compare it with
+	// Otherwise get the last two digits of the full hash and compare it with
 	// the rollout percentage.
 	return uint8(hfull%100) <= rollout
 }
