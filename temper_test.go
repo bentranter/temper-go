@@ -1,39 +1,78 @@
-package temper
+package temper_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/bentranter/temper-go"
 )
 
-func TestClientCheckEmptyFilter(t *testing.T) {
-	// Create a client where the check for the initial filter is guaranteed to fail.
-	client := New("FAKE_KEY", "", &Option{BaseURL: "http://localhost:3000"})
+// mockTemperBackend
+func mockTemperBackend() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/public", func(w http.ResponseWriter, r *http.Request) {
+		// TODO
+	})
+	mux.HandleFunc("/api/public/filter", func(w http.ResponseWriter, r *http.Request) {
+		rawFilterResp := []byte(`{"filter":"AAAAAAAAAAChyQAAAAAAAKHJAAAAAAAAONKlyQAAAAAIhwAAAAAAAAAAAAAAAAAAAAAAAAAAAABAnQAAAAAAAAAAAAAAAAAAAAAAAAAAAADLPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcdx5tgAAAACNEQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPaPvckAAAAAAAAAAAAAAACSYQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","rollout":"ZPPzHfbwt2xk7lAWLwPCQgE+Qryr1ydL"}`)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(rawFilterResp)
+	})
 
-	if client.Check("anything") {
+	return mux
+}
+
+func TestMain(m *testing.M) {
+	srv := httptest.NewServer(mockTemperBackend())
+	defer srv.Close()
+
+	temper.Init("FAKE_KEY", "FAKE_SECRET", &temper.Option{
+		BaseURL: srv.URL,
+	})
+
+	os.Exit(m.Run())
+}
+
+func TestTemperCheck(t *testing.T) {
+	if temper.Check("anything") {
 		t.Fatal("expected nil client to return false")
+	}
+
+	if v := temper.Check("temper_api_e2e:user:1"); !v {
+		t.Errorf("expected temper_api_e2e:user:1 to be true but got %v", v)
+	}
+	if v := temper.Check("temper_api_e2e:user:2"); v {
+		t.Errorf("expected temper_api_e2e:user:2 to be false but got %v", v)
+	}
+	if v := temper.Check("temper_api_e2e_rollout:user:3"); !v {
+		t.Errorf("expected temper_api_e2e_rollout:user:3 to be true but got %v", v)
 	}
 }
 
-func TestClientCheck(t *testing.T) {
-	if os.Getenv("SMOKE_TEST") == "" {
-		t.Skip("skipping smoke tests, set SMOKE_TEST=true to run with smoke tests enabled")
+func TestTemperRefactor(t *testing.T) {
+	type fnArgs struct {
+		V string
 	}
 
-	client := New(
-		os.Getenv("TEMPER_PUBLISHABLE_KEY"),
-		os.Getenv("TEMPER_SECRET_KEY"),
-		&Option{BaseURL: "http://localhost:3000"},
-	)
-
-	if v := client.Check("temper_api_e2e:user:1"); !v {
-		t.Errorf("expected temper_api_e2e:user:1 to be true but got %v", v)
+	type retVal struct {
+		V string
 	}
 
-	if v := client.Check("temper_api_e2e:user:2"); v {
-		t.Errorf("expected temper_api_e2e:user:2 to be false but got %v", v)
-	}
+	result := temper.Refactor(&temper.RefactorArgs[fnArgs, retVal]{
+		Name: "test",
+		Old: func(args fnArgs) retVal {
+			return retVal(args)
+		},
+		New: func(args fnArgs) retVal {
+			return retVal(args)
+		},
+	}, fnArgs{
+		V: "test",
+	})
 
-	if v := client.Check("temper_api_e2e_rollout:user:3"); !v {
-		t.Errorf("expected temper_api_e2e_rollout:user:3 to be true but got %v", v)
+	if result.V != "test" {
+		t.Fatalf("expected test, got %s", result.V)
 	}
 }
