@@ -59,24 +59,24 @@ func TestRefactor_results_exactMatch(t *testing.T) {
 				ArgsType: "temper.in",
 				Args: []*refactorParameter{
 					{
-						Name: "V",
-						Type: "string",
+						Name:  "V",
+						Type:  "string",
 						Value: "test",
 					},
 				},
 				OldType: "temper.out",
 				Old: []*refactorParameter{
 					{
-						Name: "V",
-						Type: "string",
+						Name:  "V",
+						Type:  "string",
 						Value: "test",
 					},
 				},
 				NewType: "temper.out",
 				New: []*refactorParameter{
 					{
-						Name: "V",
-						Type: "string",
+						Name:  "V",
+						Type:  "string",
 						Value: "test",
 					},
 				},

@@ -3,8 +3,8 @@ package temper
 import (
 	"fmt"
 	"log"
-	"time"
 	"reflect"
+	"time"
 )
 
 // A refactorParameter is an arbitrary refactor value. It represents both
@@ -16,20 +16,20 @@ type refactorParameter struct {
 }
 
 type refactorResultParameters struct {
-	ArgsType string       `json:"args_type"`
+	ArgsType string               `json:"args_type"`
 	Args     []*refactorParameter `json:"args"`
-	OldType  string       `json:"old_type"`
+	OldType  string               `json:"old_type"`
 	Old      []*refactorParameter `json:"old"`
-	NewType  string       `json:"new_type"`
+	NewType  string               `json:"new_type"`
 	New      []*refactorParameter `json:"new"`
 }
 
 // addRefactorResultRequest is the data type for submitting Refactor results
 // to the Temper API.
 type addRefactorResultRequest struct {
-	Key                string              `json:"key"` // Refactor key.
-	OldAverageDuration time.Duration       `json:"old_average_duration"`
-	NewAverageDuration time.Duration       `json:"new_average_duration"`
+	Key                string                      `json:"key"` // Refactor key.
+	OldAverageDuration time.Duration               `json:"old_average_duration"`
+	NewAverageDuration time.Duration               `json:"new_average_duration"`
 	ResultParameters   []*refactorResultParameters `json:"results"`
 }
 
