@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 	"sync"
+	"time"
 )
 
 const (
