@@ -84,8 +84,9 @@ func (r *RefactorArgs[Args, Ret]) run(args Args) Ret {
 	// Run the `New` func in its own goroutine.
 	ch := make(chan Ret)
 	go func() {
-		ch <- r.New(args)
+		ret := r.New(args)
 		r.result.newdur = time.Since(start)
+		ch <- ret
 	}()
 
 	r.result.old = r.Old(args)
